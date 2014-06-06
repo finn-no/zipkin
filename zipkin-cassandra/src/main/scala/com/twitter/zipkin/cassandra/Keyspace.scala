@@ -40,8 +40,8 @@ object Keyspace {
 
   def static(
     keyspaceName: String = "Zipkin",
-    nodes: Set[String] = Set("localhost"),
-    port: Int = 9160,
+    nodes: Set[String] = Set("dev-cassandra1.finntech.no"),
+    port: Int = 7613,
     stats: StatsReceiver = NullStatsReceiver,
     tracerFactory: Tracer.Factory = NullTracer.factory): KeyspaceBuilder = {
 

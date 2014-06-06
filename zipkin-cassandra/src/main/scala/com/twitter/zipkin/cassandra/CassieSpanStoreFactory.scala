@@ -107,7 +107,7 @@ trait CassieSpanStoreFactory { self: App =>
   val cassieSpanCodec = Defaults.SpanCodec
 
   val cassieKeyspace = flag("zipkin.store.cassie.keyspace", Defaults.KeyspaceName, "name of the keyspace to use")
-  val cassieDest = flag("zipkin.store.cassie.dest", "localhost:9160", "dest of the cassandra cluster")
+  val cassieDest = flag("zipkin.store.cassie.dest", "dev-cassandra1.finntech.no:7613", "dest of the cassandra cluster")
 
   val cassieWriteConsistency = flag[WriteConsistency]("zipkin.store.cassie.writeConsistency", Defaults.WriteConsistency,  "cassie write consistency (one, quorum, all)")
   val cassieReadConsistency = flag[ReadConsistency]("zipkin.store.cassie.readConsistency", Defaults.ReadConsistency, "cassie read consistency (one, quorum, all)")
