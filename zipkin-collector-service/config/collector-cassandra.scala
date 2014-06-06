@@ -18,7 +18,7 @@ import com.twitter.zipkin.cassandra
 import com.twitter.zipkin.collector.builder.CollectorServiceBuilder
 import com.twitter.zipkin.storage.Store
 
-val keyspaceBuilder = cassandra.Keyspace.static(nodes = Set("localhost"))
+val keyspaceBuilder = cassandra.Keyspace.static(nodes = Set("dev-cassandra1.finntech.no"), port = 7613)
 val cassandraBuilder = Store.Builder(
   cassandra.StorageBuilder(keyspaceBuilder),
   cassandra.IndexBuilder(keyspaceBuilder),
