@@ -1,6 +1,12 @@
+/*
 connect 127.0.0.1/9160;
+*/
 
-create keyspace Zipkin;
+create keyspace Zipkin
+  with placement_strategy = 'NetworkTopologyStrategy'
+  and strategy_options = {DC1 : 1,DC2 : 1}
+  and durable_writes = true;
+
 use Zipkin;
 
 create column family Traces;
