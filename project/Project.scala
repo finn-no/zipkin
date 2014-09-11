@@ -37,7 +37,8 @@ object Zipkin extends Build {
   )
 
   val ostrichVersion = "9.2.1"
-  val algebirdVersion  = "0.4.0"
+  val algebirdVersion  = "0.7.0"
+  val scaldingVersion = "0.11.2"
   val hbaseVersion = "0.98.3-hadoop2"
   val hadoopVersion = "2.4.0"
   val summingbirdVersion = "0.3.2"
@@ -134,7 +135,7 @@ object Zipkin extends Build {
       base = file(".")
     ) aggregate(
       tracegen, common, scrooge, zookeeper,
-      query, queryCore, queryService, web,
+      query, queryCore, queryService, web, zipkinAggregate,
       collectorScribe, collectorCore, collectorService,
       sampler, receiverScribe, receiverKafka, collector,
       cassandra, anormDB, kafka, redis, hbase
@@ -257,7 +258,9 @@ object Zipkin extends Build {
       util("logging"),
       util("app"),
       scroogeDep("serializer"),
-      "org.iq80.snappy" % "snappy" % "0.1"
+      "org.iq80.snappy" % "snappy" % "0.1",
+      "com.twitter" %% "scalding-core" % scaldingVersion,
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion
     ) ++ testDependencies ++ scalaTestDeps,
 
     /* Add configs to resource path for ConfigSpec */
@@ -420,6 +423,27 @@ object Zipkin extends Build {
         (base / "config" +++ base / "src" / "test" / "resources").get
     }
   ).dependsOn(collectorCore, collectorScribe, receiverKafka, cassandra, kafka, redis, anormDB, hbase)
+
+  lazy val zipkinAggregate =
+    Project(
+      id = "zipkin-aggregate",
+      base = file("zipkin-aggregate"),
+      settings = defaultSettings ++ assemblySettings
+    ).settings(
+      mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+        {
+          case PathList("org", xs @ _*) => MergeStrategy.first
+          case PathList("com", xs @ _*) => MergeStrategy.first
+          case "BUILD" => MergeStrategy.first
+          case PathList(ps @_*) if ps.last == "package-info.class" => MergeStrategy.discard
+          case x => old(x)
+        }
+      },
+      BuildProperties.buildPropertiesPackage := "com.twitter.zipkin",
+      resourceGenerators in Compile <+= BuildProperties.buildPropertiesWrite
+  ).dependsOn(cassandra, common)
+
+
 
   lazy val web =
     Project(
