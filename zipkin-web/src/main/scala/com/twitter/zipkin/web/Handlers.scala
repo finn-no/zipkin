@@ -377,6 +377,12 @@ class Handlers(jsonGenerator: ZipkinJson, mustacheGenerator: ZipkinMustache) {
       }
     }
 
+  def handleAggregate(client: ZipkinQuery[Future]) : Service[Request, MustacheRenderer] =
+    Service.mk[Request, MustacheRenderer] { req =>
+      val data = Map[String,Object]()
+      Future(MustacheRenderer("v2/aggregate.mustache", data))
+    }
+
   // API Endpoints
 
   def handleQuery(client: ZipkinQuery[Future]): Service[Request, Renderer] =
