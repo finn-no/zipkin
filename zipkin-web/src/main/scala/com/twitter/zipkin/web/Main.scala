@@ -74,6 +74,7 @@ trait ZipkinWebFactory { self: App =>
       ("/", addLayout andThen handleIndex(queryClient)),
       ("/traces/:id", addLayout andThen handleTraces(queryClient)),
       ("/realtime", addLayout andThen handleRealtime(queryClient)),
+      ("/aggregate", addLayout andThen handleAggregate(queryClient)),
       ("/api/query", handleQuery(queryClient)),
       ("/api/services", handleServices(queryClient)),
       ("/api/spans", requireServiceName andThen handleSpans(queryClient)),
@@ -92,7 +93,7 @@ trait ZipkinWebFactory { self: App =>
 
       m.withHandler(handlePath.mkString("/") + suffix,
         nettyToFinagle andThen
-        collectStats(stats.scope(handlePath.mkString("-"))) andThen
+        collectStats(handlePath.foldLeft(stats) { case (s, p) => s.scope(p) }) andThen
         renderPage andThen
         catchExceptions andThen
         checkPath(path) andThen

@@ -27,7 +27,7 @@ object Zipkin extends Build {
 
   val finagleVersion = "6.16.0"
   val utilVersion = "6.16.0"
-  val scroogeVersion = "3.15.0"
+  val scroogeVersion = "3.16.1"
   val cassieVersion = "0.25.3"
   val zookeeperVersions = Map(
     "candidate" -> "0.0.41",
@@ -37,8 +37,10 @@ object Zipkin extends Build {
   )
 
   val ostrichVersion = "9.2.1"
-  val algebirdVersion  = "0.4.0"
-  val hbaseVersion = "0.94.10"
+  val algebirdVersion  = "0.7.0"
+  val scaldingVersion = "0.11.2"
+  val hbaseVersion = "0.98.3-hadoop2"
+  val hadoopVersion = "2.4.0"
   val summingbirdVersion = "0.3.2"
 
   def finagle(name: String) = "com.twitter" % ("finagle-" + name + "_2.9.2") % finagleVersion
@@ -133,7 +135,7 @@ object Zipkin extends Build {
       base = file(".")
     ) aggregate(
       tracegen, common, scrooge, zookeeper,
-      query, queryCore, queryService, web,
+      query, queryCore, queryService, web, zipkinAggregate,
       collectorScribe, collectorCore, collectorService,
       sampler, receiverScribe, receiverKafka, collector,
       cassandra, anormDB, kafka, redis, hbase
@@ -256,7 +258,9 @@ object Zipkin extends Build {
       util("logging"),
       util("app"),
       scroogeDep("serializer"),
-      "org.iq80.snappy" % "snappy" % "0.1"
+      "org.iq80.snappy" % "snappy" % "0.1",
+      "com.twitter" %% "scalding-core" % scaldingVersion,
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion
     ) ++ testDependencies ++ scalaTestDeps,
 
     /* Add configs to resource path for ConfigSpec */
@@ -420,6 +424,27 @@ object Zipkin extends Build {
     }
   ).dependsOn(collectorCore, collectorScribe, receiverKafka, cassandra, kafka, redis, anormDB, hbase)
 
+  lazy val zipkinAggregate =
+    Project(
+      id = "zipkin-aggregate",
+      base = file("zipkin-aggregate"),
+      settings = defaultSettings ++ assemblySettings
+    ).settings(
+      mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+        {
+          case PathList("org", xs @ _*) => MergeStrategy.first
+          case PathList("com", xs @ _*) => MergeStrategy.first
+          case "BUILD" => MergeStrategy.first
+          case PathList(ps @_*) if ps.last == "package-info.class" => MergeStrategy.discard
+          case x => old(x)
+        }
+      },
+      BuildProperties.buildPropertiesPackage := "com.twitter.zipkin",
+      resourceGenerators in Compile <+= BuildProperties.buildPropertiesWrite
+  ).dependsOn(cassandra, common)
+
+
+
   lazy val web =
     Project(
       id = "zipkin-web",
@@ -469,6 +494,11 @@ object Zipkin extends Build {
     }
   ).dependsOn(scrooge)
 
+  lazy val hbaseTestGuavaHack = Project(
+    id = "zipkin-hbase-test-guava-hack",
+    base = file("zipkin-hbase/src/test/guava-hack"),
+    settings = defaultSettings
+  )
   lazy val hbase = Project(
     id = "zipkin-hbase",
     base = file("zipkin-hbase"),
@@ -476,26 +506,38 @@ object Zipkin extends Build {
   ).settings(
     parallelExecution in Test := false,
     libraryDependencies ++= Seq(
-      "org.apache.hbase"      % "hbase"                 % hbaseVersion notTransitive(),
-      "org.apache.hbase"      % "hbase"                 % hbaseVersion % "test" classifier("tests") classifier(""),
-      "com.google.guava"      % "guava-io"              % "r03" % "test",
-      "com.google.protobuf"   % "protobuf-java"         % "2.4.1",
-      "org.apache.hadoop"     % "hadoop-core"           % "1.1.2" notTransitive(),
-      "org.apache.hadoop"     % "hadoop-test"           % "1.1.2" % "test",
-      "commons-logging"       % "commons-logging"       % "1.1.1",
-      "commons-configuration" % "commons-configuration" % "1.6",
-      "org.apache.zookeeper"  % "zookeeper"             % "3.4.5" % "runtime" notTransitive(),
-      "org.slf4j"             % "slf4j-log4j12"         % "1.6.4" % "runtime",
+      "junit"                 % "junit"                             % "4.10",
+      "org.apache.hbase"      % "hbase"                             % hbaseVersion,
+      "org.apache.hbase"      % "hbase-common"                      % hbaseVersion,
+      "org.apache.hbase"      % "hbase-common"                      % hbaseVersion % "test" classifier("tests") classifier(""),
+      "org.apache.hbase"      % "hbase-client"                      % hbaseVersion,
+      "org.apache.hbase"      % "hbase-client"                      % hbaseVersion % "test" classifier("tests") classifier(""),
+      "org.apache.hbase"      % "hbase-server"                      % hbaseVersion % "test" classifier("tests") classifier(""),
+      "org.apache.hbase"      % "hbase-hadoop-compat"               % hbaseVersion % "test" classifier("tests") classifier(""),
+      "org.apache.hbase"      % "hbase-hadoop2-compat"              % hbaseVersion % "test" classifier("tests") classifier(""),
+      "com.google.guava"      % "guava"                             % "11.0.2" % "test", //Hadoop needs a deprecated class
+      "com.google.guava"      % "guava-io"                          % "r03" % "test", //Hadoop needs a deprecated class
+      "com.google.protobuf"   % "protobuf-java"                     % "2.4.1",
+      "org.apache.hadoop"     % "hadoop-common"                     % hadoopVersion,
+      "org.apache.hadoop"     % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier("tests") classifier(""),
+      "org.apache.hadoop"     % "hadoop-common"                     % hadoopVersion % "test" classifier("tests"),
+      "org.apache.hadoop"     % "hadoop-hdfs"                       % hadoopVersion % "test" classifier("tests") classifier(""),
+      "commons-logging"       % "commons-logging"                   % "1.1.1",
+      "commons-configuration" % "commons-configuration"             % "1.6",
+      "org.apache.zookeeper"  % "zookeeper"                         % "3.4.6" % "runtime" notTransitive(),
+      "org.slf4j"             % "slf4j-log4j12"                     % "1.6.4" % "runtime",
       util("logging"),
       scroogeDep("serializer")
     ) ++ testDependencies,
-
+    
+    resolvers ~= {rs => Seq(DefaultMavenRepository) ++ rs},
+    
     /* Add configs to resource path for ConfigSpec */
     unmanagedResourceDirectories in Test <<= baseDirectory {
       base =>
         (base / "config" +++ base / "src" / "test" / "resources").get
     }
-  ).dependsOn(scrooge)
+  ).dependsOn(scrooge, hbaseTestGuavaHack % "test->compile")
 
   lazy val example = Project(
     id = "zipkin-example",
