@@ -25,9 +25,9 @@ import AssemblyKeys._
 object Zipkin extends Build {
   val zipkinVersion = "1.2.0-SNAPSHOT"
 
-  val finagleVersion = "6.16.0"
-  val utilVersion = "6.16.0"
-  val scroogeVersion = "3.16.1"
+  val finagleVersion = "6.20.0"
+  val utilVersion = "6.20.0"
+  val scroogeVersion = "3.16.3"
   val cassieVersion = "0.25.3"
   val zookeeperVersions = Map(
     "candidate" -> "0.0.41",
