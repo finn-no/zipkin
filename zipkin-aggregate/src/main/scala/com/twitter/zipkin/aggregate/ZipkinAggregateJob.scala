@@ -31,16 +31,14 @@ final class ZipkinAggregateJob
     .group
 
   val result = parentSpans.join(childSpans)
-    .toTypedPipe
     .map { case (_,(parent: Span,child: Span)) =>
     val moments = child.duration.map { d => Moments(d.toDouble) }.getOrElse(Monoid.zero[Moments])
     val dlink = DependencyLink(Service(parent.serviceName.get), Service(child.serviceName.get), moments)
     ((parent.serviceName.get, child.serviceName.get), dlink)
   }
     .group
-    .reduce { (d1, d2) => Semigroup.plus(d1, d2) }
+    .sum
     .values
-//    .map { dlink:DependencyLink => Dependencies(dateRange.start, dateRange.end, Seq(dlink))}
     .map { dlink => Dependencies(Time.fromMilliseconds(dateRange.start.timestamp), Time.fromMilliseconds(dateRange.end.timestamp), Seq(dlink))}
     .sum
 
