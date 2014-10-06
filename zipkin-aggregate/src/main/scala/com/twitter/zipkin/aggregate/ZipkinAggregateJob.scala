@@ -35,11 +35,13 @@ final class ZipkinAggregateJob
     .map { case (key, span) => ((span.parentId.get, span.traceId), span)}
     .group
 
+  def serviceNameOrUnknown(span: Span) = span.serviceName.getOrElse("unknown") // (should be span.erviceName.get)
+
   val result = parentSpans.join(childSpans)
     .map { case (_,(parent: Span,child: Span)) =>
     val moments = child.duration.map { d => Moments(d.toDouble) }.getOrElse(Monoid.zero[Moments])
-    val dlink = DependencyLink(Service(parent.serviceName.get), Service(child.serviceName.get), moments)
-    ((parent.serviceName.get, child.serviceName.get), dlink)
+    val dlink = DependencyLink(Service(serviceNameOrUnknown(parent)), Service(serviceNameOrUnknown(child)), moments)
+    ((serviceNameOrUnknown(parent), serviceNameOrUnknown(child)), dlink)
   }
     .group
     .sum
