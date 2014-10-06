@@ -15,7 +15,12 @@ final class ZipkinAggregateJob
   @transient
   val (extraConfig, spanSource) = SpanSourceProvider(args)
 
-  override def config = super.config ++ extraConfig
+  override def config = super.config ++ extraConfig ++ Map(
+    "mapreduce.map.memory.mb" -> args.getOrElse("mapMb", "4096"),
+    "mapreduce.reduce.memory.mb" -> args.getOrElse("reduceMb", "4096"),
+    "mapred.child.java.opts" ->	("-Xmx"+args.getOrElse("childXmxMb", "4000")+"m"),
+    "numSplitsToProcess" -> args.getOrElse("numSplitsToProcess", "-1")
+  )
 
   val allSpans = TypedPipe.from(spanSource)
     .groupBy { span: Span => (span.id, span.traceId) }
@@ -48,7 +53,7 @@ final class ZipkinAggregateJob
 object SpanSourceProvider {
   def apply(args: Args) : (Map[AnyRef,AnyRef], Source with TypedSource[Span] with TypedSink[Dependencies]) = args.required("source") match {
     case "cassandra" => {
-      (Map("hosts" -> args.required("hosts"), "port" -> args.getOrElse("port", "9160"), "numSplitsToProcess" -> args.getOrElse("numSplitsToProcess", "-1")), new cassandra.SpanSource)
+      (Map("hosts" -> args.required("hosts"), "port" -> args.getOrElse("port", "9160")), new cassandra.SpanSource)
     }
     case s:String => throw new ArgsException(s+" is not an implemented source.")
   }
