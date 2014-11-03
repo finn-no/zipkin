@@ -16,6 +16,31 @@ define(
                 this.on(document, 'aggregateDataReceived', function(ev, data){
                     var t = this;
 
+                    // Find min/max number of calls for all dependency links
+                    // to render different arrow widths depending on number of calls
+                    var minNumberOfCalls = 0;
+                    var maxNumberOfCalls = 0;
+                    data.links.filter(function(link){
+                        return link.parent != link.child;
+                    }).forEach(function(link){
+                        var numCalls = getMomentAnnotations(link.durationMoments).count;
+                        if(minNumberOfCalls == 0 || numCalls < minNumberOfCalls) {
+                            minNumberOfCalls = numCalls;
+                        }
+                        if(numCalls > maxNumberOfCalls) {
+                            maxNumberOfCalls = numCalls;
+                        }
+                    });
+                    var minLg = Math.log(minNumberOfCalls);
+                    var maxLg = Math.log(maxNumberOfCalls);
+                    function scale(i, startRange, endRange, minResult, maxResult) {
+                        return minResult + (i - startRange) * (maxResult - minResult) / (endRange - startRange);
+                    }
+                    function arrowWidth(numberOfCalls) {
+                        var lg = Math.log(numberOfCalls);
+                        return scale(lg, minLg, maxLg, 0.3, 3);
+                    }
+
                     Array.prototype.unique = function() {
                         return this.filter(
                             function(val, i, arr)
@@ -95,6 +120,10 @@ define(
                         svgNodes.each(function(edge){
                             var el = this;
                             var $el = $(el);
+
+                            var numberOfCalls = g.edge(edge).annotations.count;
+                            var arrowWidthPx = arrowWidth(numberOfCalls)+'px';
+
                             $el.hover(function(){
                                 rootSvg.classList.add('dark');
                                 var nodes = getIncidentNodeElements(el.getAttribute('data-from'), el.getAttribute('data-to'));
@@ -110,6 +139,8 @@ define(
                                 });
                                 el.classList.remove('hover-edge');
                             });
+
+                            $el.css('stroke-width', arrowWidthPx);
                         });
 
                         svgNodes.attr('data-from', function(d){
@@ -172,7 +203,6 @@ define(
 
                                 $this.click(function(){
                                     console.log('clicked', d);
-//                                    debugger;
                                     t.trigger('showServiceDataModal', {
                                         serviceName: d
                                     });
@@ -181,8 +211,6 @@ define(
                                 $this.hover(function(){
                                     el.classList.add('hover');
                                     rootSvg.classList.add('dark');
-//                                    debugger;
-//                                    console.log("There are "+incidentEdgeElements.length+" els to colurs");
                                     getIncidentEdgeElements(d).forEach(function(el){
                                         el.classList.add('hover-edge');
                                     });
