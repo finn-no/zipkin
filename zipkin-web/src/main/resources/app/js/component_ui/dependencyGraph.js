@@ -4,10 +4,11 @@ define(
     [
         'flight/lib/component',
         'd3/d3',
-        'dagre-d3'
+        'dagre-d3',
+        'component_data/momentAnnotations'
     ],
 
-    function (defineComponent,d3,  dagre) {
+    function (defineComponent,d3,  dagre, getMomentAnnotations) {
 
         return defineComponent(dependencyGraph);
 

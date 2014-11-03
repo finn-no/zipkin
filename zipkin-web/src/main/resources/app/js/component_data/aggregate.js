@@ -13,6 +13,7 @@ define(
             var _this = this;
             var _data = [];
             var services = {};
+            var dependencies = {};
 
             this.getAggregate = function(from, to) {
                 var url = "/api/dependencies/"+from+'/'+to;
@@ -37,9 +38,13 @@ define(
 
             this.buildServiceData = function(data) {
                 services = {};
+                dependencies = {};
                 data.links.forEach(function(link){
                     var parent = link.parent;
                     var child = link.child;
+
+                    dependencies[parent] = dependencies[parent] || {};
+                    dependencies[parent][child] = link;
 
                     services[parent] = services[parent] || { serviceName: parent, uses: [], usedBy: [] };
                     services[child] = services[child] || { serviceName: child, uses: [], usedBy: [] };
@@ -60,14 +65,22 @@ define(
                     }.bind(this));
                 });
 
+                this.on(document, 'dependencyDataRequested', function(event, args){
+                    this.getDependencyData(args.parent, args.child, function(data){
+                        this.trigger(document, 'dependencyDataReceived', data);
+                    }.bind(this));
+                });
+
                 this.getAggregate(0, Date.now()*1000);
             });
 
             this.getServiceData = function(serviceName, callback){
                 callback(services[serviceName]);
-            }
-        }
+            };
 
+            this.getDependencyData = function(parent, child, callback){
+                callback(dependencies[parent][child]);
+            };
+        }
     }
 );
-
