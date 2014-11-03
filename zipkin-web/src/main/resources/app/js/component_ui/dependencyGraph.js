@@ -14,6 +14,7 @@ define(
         function dependencyGraph() {
             this.after('initialize', function(container, options) {
                 this.on(document, 'aggregateDataReceived', function(ev, data){
+                    var t = this;
 
                     Array.prototype.unique = function() {
                         return this.filter(
@@ -166,6 +167,15 @@ define(
 
                                 var incidentEdges = g.incidentEdges(d).map(function(edgeId){
                                     return g.edge(edgeId);
+                                });
+
+
+                                $this.click(function(){
+                                    console.log('clicked', d);
+//                                    debugger;
+                                    t.trigger('showServiceDataModal', {
+                                        serviceName: d
+                                    });
                                 });
 
                                 $this.hover(function(){
