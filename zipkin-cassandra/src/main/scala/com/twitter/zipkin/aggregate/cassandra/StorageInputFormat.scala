@@ -67,7 +67,13 @@ final class StorageInputFormat extends InputFormat[Key,EncodedSpan] {
 
     storage.close()
 
-    Random.shuffle(flattened).toArray
+    val splits = Random.shuffle(flattened).toArray
+    val numberOfSplitsToProcess = conf.getInt("numSplitsToProcess", -1)
+    if(numberOfSplitsToProcess != -1) {
+      splits.take(numberOfSplitsToProcess)
+    } else {
+      splits
+    }
   }
 
   override def getRecordReader(inputSplit: InputSplit, jobConf: JobConf, reporter: Reporter)

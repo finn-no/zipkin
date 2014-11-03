@@ -15,7 +15,12 @@ final class ZipkinAggregateJob
   @transient
   val (extraConfig, spanSource) = SpanSourceProvider(args)
 
-  override def config = super.config ++ extraConfig
+  override def config = super.config ++ extraConfig ++ Map(
+    "mapreduce.map.memory.mb" -> args.getOrElse("mapMb", "4096"),
+    "mapreduce.reduce.memory.mb" -> args.getOrElse("reduceMb", "4096"),
+    "mapred.child.java.opts" ->	("-Xmx"+args.getOrElse("childXmxMb", "4000")+"m"),
+    "numSplitsToProcess" -> args.getOrElse("numSplitsToProcess", "-1")
+  )
 
   val allSpans = TypedPipe.from(spanSource)
     .groupBy { span: Span => (span.id, span.traceId) }
@@ -30,17 +35,17 @@ final class ZipkinAggregateJob
     .map { case (key, span) => ((span.parentId.get, span.traceId), span)}
     .group
 
+  def serviceNameOrUnknown(span: Span) = span.serviceName.getOrElse("unknown") // (should be span.erviceName.get)
+
   val result = parentSpans.join(childSpans)
-    .toTypedPipe
     .map { case (_,(parent: Span,child: Span)) =>
     val moments = child.duration.map { d => Moments(d.toDouble) }.getOrElse(Monoid.zero[Moments])
-    val dlink = DependencyLink(Service(parent.serviceName.get), Service(child.serviceName.get), moments)
-    ((parent.serviceName.get, child.serviceName.get), dlink)
+    val dlink = DependencyLink(Service(serviceNameOrUnknown(parent)), Service(serviceNameOrUnknown(child)), moments)
+    ((serviceNameOrUnknown(parent), serviceNameOrUnknown(child)), dlink)
   }
     .group
-    .reduce { (d1, d2) => Semigroup.plus(d1, d2) }
+    .sum
     .values
-//    .map { dlink:DependencyLink => Dependencies(dateRange.start, dateRange.end, Seq(dlink))}
     .map { dlink => Dependencies(Time.fromMilliseconds(dateRange.start.timestamp), Time.fromMilliseconds(dateRange.end.timestamp), Seq(dlink))}
     .sum
 

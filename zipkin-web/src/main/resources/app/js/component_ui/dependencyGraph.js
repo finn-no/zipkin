@@ -58,6 +58,12 @@ define(
                         };
                     }
 
+                    function flatten(arrayOfArrays) {
+                        return arrayOfArrays.reduce(function(a,b){
+                            return a.concat(b);
+                        });
+                    }
+
                     data.links.filter(function(link){
                         return link.parent != link.child;
                     }).forEach(function(link){
@@ -103,9 +109,6 @@ define(
                                 });
                                 el.classList.remove('hover-edge');
                             });
-                            $el.on('mouseenter', function(ev){
-                                console.log("moseenter");
-                            });
                         });
 
                         svgNodes.attr('data-from', function(d){
@@ -129,11 +132,24 @@ define(
                     }
 
                     function getIncidentNodeElements(from, to) {
-                        console.log("get nodes from "+from+" to "+to);
                         return [
                             rootSvg.querySelector("[data-node='"+from+"']"),
                             rootSvg.querySelector("[data-node='"+to+"']")
                         ];
+                    }
+
+                    function getAdjacentNodeElements(centerNode) {
+                        var edges = g.incidentEdges(centerNode);
+                        var nodes = flatten(edges.map(function(edge){
+                            return g.incidentNodes(edge);
+                        }));
+                        var otherNodes = nodes.filter(function(node){
+                            return node != centerNode;
+                        }).unique();
+                        var elements = otherNodes.map(function(name){
+                            return rootSvg.querySelector("[data-node='"+name+"']");
+                        });
+                        return elements;
                     }
 
                     renderer.drawNodes(function(g, svg) {
@@ -160,11 +176,18 @@ define(
                                     getIncidentEdgeElements(d).forEach(function(el){
                                         el.classList.add('hover-edge');
                                     });
+                                    getAdjacentNodeElements(d).forEach(function(el){
+                                        el.classList.add('hover-light');
+                                    });
                                 },function(){
                                     el.classList.remove('hover');
                                     rootSvg.classList.remove('dark');
                                     getIncidentEdgeElements(d).forEach(function(el){
                                         el.classList.remove('hover-edge');
+                                    });
+                                    getAdjacentNodeElements(d).forEach(function(el){
+
+                                        el.classList.remove('hover-light');
                                     });
                                 });
                             });
