@@ -25,6 +25,9 @@ define(
             console.log("render", data);
             var $modal = $('#serviceModal');
             $modal.find('#serviceUsedByList').html('');
+            data.usedBy.sort(function (a, b) {
+                return a.toLowerCase().localeCompare(b.toLowerCase());
+            });
             data.usedBy.forEach(function(usedBy){
                 var $name = $('<li><a href="">' + usedBy + '</a></li>');
                 $name.find('a').click(function(ev){
@@ -37,6 +40,10 @@ define(
             }.bind(this));
 
             $modal.find('#serviceUsesList').html('');
+            data.uses.sort(function (a, b) {
+                return a.toLowerCase().localeCompare(b.toLowerCase());
+            });
+
             data.uses.forEach(function(uses){
                 var $name = $('<li><a href="">' + uses + '</a></li>');
                 $name.find('a').click(function(ev){
