@@ -50,7 +50,6 @@ g.hover rect {
 }
 g.hover-edge {
     stroke: #4058ff;
-    stroke-width: 2px;
 }
 g.hover-light rect {
     fill: #8a9eff;

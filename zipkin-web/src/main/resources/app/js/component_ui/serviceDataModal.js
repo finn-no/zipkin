@@ -3,25 +3,72 @@
 define(
     [
         'flight/lib/component',
-        'component_data/aggregate'
+        'component_data/aggregate',
+        'component_data/momentAnnotations'
     ],
 
-    function(defineComponent, aggregate){
+    function(defineComponent, aggregate, getMomentAnnotations){
         return defineComponent(serviceDataModal);
 
         function serviceDataModal() {
             this.after('initialize', function(){
-                this.on(document, 'showServiceDataModal', this.showModal);
-                this.on(document, 'serviceDataReceived', renderModal);
+                this.on(document, 'showServiceDataModal', this.showServiceDataModal);
+                this.on(document, 'showDependencyModal', this.showDependencyModal);
+                this.on(document, 'serviceDataReceived', renderServiceDataModal);
+                this.on(document, 'dependencyDataReceived', renderDependencyModal);
             });
-            this.showModal = function(event, data){
+
+            this.showServiceDataModal = function(event, data){
                 this.trigger(document, 'serviceDataRequested', {
                     serviceName: data.serviceName
                 });
             };
+
+            this.showDependencyModal = function(event, data){
+                this.trigger(document, 'dependencyDataRequested', {
+                    parent: data.parent,
+                    child: data.child
+                });
+            }
         }
 
-        function renderModal(event, data) {
+        function renderDependencyModal(event, data) {
+            console.log("dep", data);
+            var moments = getMomentAnnotations(data.durationMoments);
+            console.log(moments);
+
+            var $modal = $('#dependencyModal');
+            var $parentElement = $('<a href="">'+data.parent+'</a>');
+            $parentElement.click(function(ev){
+                ev.preventDefault();
+                this.trigger(document, 'showServiceDataModal', {
+                    serviceName: data.parent
+                });
+            }.bind(this));
+
+            var $childElement = $('<a href="">'+data.child+'</a>');
+            $childElement.click(function(ev){
+                ev.preventDefault();
+                this.trigger(document, 'showServiceDataModal', {
+                    serviceName: data.child
+                });
+            }.bind(this));
+
+            $modal.find('#dependencyModalParent').html($parentElement);
+            $modal.find('#dependencyModalChild').html($childElement);
+
+            $modal.find('#dependencyNumCalls').text(moments.count);
+            $modal.find('#dependencyMean').text(moments.mean);
+            $modal.find('#dependencyVariance').text(moments.variance);
+            $modal.find('#dependencyStddev').text(moments.stddev);
+            $modal.find('#dependencySkewness').text(moments.skewness);
+            $modal.find('#dependencyKurtosis').text(moments.kurtosis);
+
+            $('#serviceModal').modal('hide');
+            $modal.modal('show');
+        }
+
+        function renderServiceDataModal(event, data) {
             console.log("render", data);
             var $modal = $('#serviceModal');
             $modal.find('#serviceUsedByList').html('');
@@ -32,8 +79,9 @@ define(
                 var $name = $('<li><a href="">' + usedBy + '</a></li>');
                 $name.find('a').click(function(ev){
                     ev.preventDefault();
-                    this.trigger(document, 'showServiceDataModal', {
-                        serviceName: usedBy
+                    this.trigger(document, 'showDependencyModal', {
+                        parent: usedBy,
+                        child: data.serviceName
                     });
                 }.bind(this));
                 $modal.find('#serviceUsedByList').append($name);
@@ -48,8 +96,9 @@ define(
                 var $name = $('<li><a href="">' + uses + '</a></li>');
                 $name.find('a').click(function(ev){
                     ev.preventDefault();
-                    this.trigger(document, 'showServiceDataModal', {
-                        serviceName: uses
+                    this.trigger(document, 'showDependencyModal', {
+                        parent: data.serviceName,
+                        child: uses
                     });
                 }.bind(this));
                 $modal.find('#serviceUsesList').append($name);
@@ -57,7 +106,8 @@ define(
 
             $modal.find('#serviceModalTitle').text(data.serviceName);
 
-            $modal.modal();
+            $modal.modal('show');
+            $('#dependencyModal').modal('hide');
         }
     }
 );
