@@ -23,9 +23,9 @@ import com.twitter.finagle.util.{DefaultTimer, InetSocketAddressUtil}
 import com.twitter.logging.Logger
 import com.twitter.scrooge.BinaryThriftStructSerializer
 import com.twitter.util.{Base64StringEncoder, Closable, Future, NonFatal, Return, Throw, Time}
-import com.twitter.zipkin.collector.SpanReceiver
+import com.twitter.zipkin.collector.{QueueFullException, SpanReceiver}
 import com.twitter.zipkin.conversions.thrift._
-import com.twitter.zipkin.gen.{LogEntry, ResultCode, Scribe, Span => ThriftSpan, ZipkinCollector}
+import com.twitter.zipkin.thriftscala.{LogEntry, ResultCode, Scribe, Span => ThriftSpan, ZipkinCollector}
 import com.twitter.zipkin.zookeeper._
 import com.twitter.zk.ZkClient
 import java.net.{InetSocketAddress, URI}
@@ -92,15 +92,16 @@ class ScribeReceiver(
 
   private[this] val logCallStat = stats.stat("logCallBatches")
   private[this] val pushbackCounter = stats.counter("pushBack")
-  private[this] val fatalCounter = stats.counter("fatalException")
+  private[this] val errorStats = stats.scope("processingError")
+  private[this] val fatalStats = stats.scope("fatalException")
   private[this] val batchesProcessedStat = stats.stat("processedBatches")
   private[this] val messagesStats = stats.scope("messages")
   private[this] val totalMessagesCounter = messagesStats.counter("total")
   private[this] val InvalidMessagesCounter = messagesStats.counter("invalid")
-  private[this] val categoryCounters = categories map { category =>
+  private[this] val categoryCounters = categories.map { category =>
     val cat = category.toLowerCase
     (cat, messagesStats.scope("perCategory").counter(cat))
-  } toMap
+  }.toMap
 
   private[this] def entryToSpan(entry: LogEntry): Option[ThriftSpan] = try {
     val span = stats.time("deserializeSpan") { deserializer.fromString(entry.message) }
@@ -132,11 +133,13 @@ class ScribeReceiver(
           batchesProcessedStat.add(spans.size)
           ok
         case Throw(NonFatal(e)) =>
-          log.warning("Exception in process(): %s".format(e.getMessage))
+          if (!e.isInstanceOf[QueueFullException])
+            log.warning("Exception in process(): %s".format(e.getMessage))
+          errorStats.counter(e.getClass.getName).incr()
           pushbackCounter.incr()
           tryLater
         case Throw(e) =>
-          fatalCounter.incr()
+          fatalStats.counter(e.getClass.getName).incr()
           Future.exception(e)
       }
     }

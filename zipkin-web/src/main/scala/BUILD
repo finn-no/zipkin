@@ -1,20 +1,21 @@
-scala_library(name='scala',
+scala_library(
+  name='scala',
   dependencies=[
-    pants('3rdparty:finagle-exception'),
-    pants('3rdparty:finagle-thriftmux'),
-    pants('3rdparty:finagle-serversets'),
-    pants('3rdparty:finagle-zipkin'),
-    pants('3rdparty:zookeeper-server-set'),
-    pants('3rdparty:algebird-core'),
-    pants('3rdparty:twitter-server'),
-    pants('3rdparty:mustache'),
-    pants('3rdparty:common-stats-util'),
-    pants('oss/zipkin-common'),
-    pants('oss/zipkin-scrooge'),
+    '3rdparty/jvm/com/github/spullara/mustache/java:mustache-compiler',
+    '3rdparty/jvm/com/twitter/algebird:core',
+    '3rdparty/jvm/com/twitter/common/zookeeper:server-set',
+    '3rdparty/jvm/com/twitter/common:stats-util',
+    'finagle/finagle-exception',
+    'finagle/finagle-serversets',
+    'finagle/finagle-thriftmux',
+    'finagle/finagle-zipkin',
+    'twitter-server',
+    'zipkin/oss/zipkin-common',
+    'zipkin/oss/zipkin-scrooge',
   ],
   sources=rglobs('*.scala'),
   resources=[
-    pants('oss/zipkin-web/src/main/resources')
+    'zipkin/oss/zipkin-web/src/main/resources'
   ]
 )
 
@@ -22,5 +23,5 @@ jvm_binary(
   name='bin',
   basename='zipkin-web-server',
   main='com.twitter.zipkin.web.Main',
-  dependencies=[pants(':scala')],
+  dependencies=[':scala'],
 )

@@ -1,13 +1,9 @@
-junit_tests(name='scala',
+junit_tests(
+  name='scala',
   dependencies=[
-    pants('3rdparty:jmock'),
-    pants('3rdparty:hamcrest-all'),
-    pants('3rdparty:cglib'),
-    pants('3rdparty:asm'),
-    pants('3rdparty:objenesis'),
-    pants('3rdparty:specs'),
-    pants('3rdparty:junit'),
-    pants('oss/zipkin-scrooge'),
+    '3rdparty:junit',
+    '3rdparty:scalatest',
+    'zipkin/oss/zipkin-scrooge',
   ],
   sources=rglobs('*.scala')
 )

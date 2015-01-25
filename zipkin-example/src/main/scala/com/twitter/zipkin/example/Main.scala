@@ -8,7 +8,7 @@ import com.twitter.util.{Await, Closable, Future}
 import com.twitter.zipkin.anormdb.AnormDBSpanStoreFactory
 import com.twitter.zipkin.collector.SpanReceiver
 import com.twitter.zipkin.common.Span
-import com.twitter.zipkin.{gen => thrift}
+import com.twitter.zipkin.{thriftscala => thrift}
 import com.twitter.zipkin.receiver.scribe.ScribeSpanReceiverFactory
 import com.twitter.zipkin.zookeeper.ZooKeeperClientFactory
 import com.twitter.zipkin.web.ZipkinWebFactory

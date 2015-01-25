@@ -22,6 +22,7 @@ import com.twitter.common.base.ExceptionalCommand
 import com.twitter.common.quantity.Amount
 import com.twitter.common.quantity.{Time => CommonTime}
 import com.twitter.common.zookeeper._
+import com.twitter.concurrent.NamedPoolThreadFactory
 import com.twitter.conversions.time._
 import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver}
 import com.twitter.finagle.util.DefaultTimer
@@ -29,6 +30,7 @@ import com.twitter.logging.Logger
 import com.twitter.util._
 import com.twitter.zk.{Connector, ZkClient, ZNode}
 import java.net.InetSocketAddress
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import org.apache.zookeeper.{CreateMode, KeeperException, Watcher, ZooDefs}
 import scala.collection.JavaConverters._
@@ -50,6 +52,11 @@ trait ZkWatch[T] extends Closable {
   val data: Var[T]
 }
 
+object ZKClient {
+  val pool: FuturePool = new ExecutorServiceFuturePool(Executors.newCachedThreadPool(
+    new NamedPoolThreadFactory("ZKClientPool", makeDaemons = true)))
+}
+
 class ZKClient(
   addrs: Seq[InetSocketAddress],
   credentials: Option[(String, String)] = None,
@@ -57,7 +64,7 @@ class ZKClient(
   stats: StatsReceiver = DefaultStatsReceiver.scope("ZKClient"),
   log: Logger = Logger.get("ZKClient"),
   timer: Timer = DefaultTimer.twitter,
-  pool: FuturePool = FuturePool.unboundedPool
+  pool: FuturePool = ZKClient.pool
 ) extends Closable {
   private[this] val client = credentials map { case (u, p) =>
     new ZooKeeperClient(Amount.of(timeout.inMilliseconds.toInt, CommonTime.MILLISECONDS), ZooKeeperClient.digestCredentials(u, p), addrs.asJava)
@@ -99,15 +106,15 @@ class ZKClient(
   }
 
   private[this] def create(path: String, persist: Boolean = true, data: Option[Array[Byte]] = None): Future[Unit] = {
-    log.info("creating node: " + path)
+    log.debug("creating node: " + path)
     val cMode = if (persist) CreateMode.PERSISTENT else CreateMode.EPHEMERAL
     val cData = data getOrElse Array.empty[Byte]
     zkClient(path).create(data = cData, mode = cMode).unit rescue {
       case e: KeeperException.NodeExistsException =>
-        log.info("Node exists: " + path)
+        log.debug(e, "Node exists: " + path)
         Future.Unit
     } onSuccess { _ =>
-      log.info("created node: " + path)
+      log.debug("created node: " + path)
     } onFailure { e =>
       log.error(e, "failed to create node: " + path)
     }
@@ -117,6 +124,12 @@ class ZKClient(
     zkClient(path).setData(data, -1).rescue {
       case e: KeeperException.NoNodeException =>
         ensurePath(path) before create(path, true, Some(data))
+      case e: KeeperException if client.shouldRetry(e) =>
+        log.debug(e, s"retrying write of data to $path")
+        setData(path, data)
+      case e =>
+        log.error(e, s"failed to write to $path: not retrying")
+        Future.exception(e)
     }.unit
   }
 
@@ -125,37 +138,50 @@ class ZKClient(
    * the jvm process is alive or until it is closed
    */
   def createEphemeral(path: String, data: Array[Byte] = Array.empty[Byte]): Closable = {
-    log.info("creating ephemeral: " + path)
+    log.debug("creating ephemeral: " + path)
     new Closable {
       private[this] val closed = new AtomicBoolean(false)
 
       private[this] def register() {
         if (closed.get) return
 
-        log.info("registering ephemeral: " + path)
+        log.debug("registering ephemeral: " + path)
 
         ensurePath(path.split("/").init.mkString("/")) before create(path, false, Some(data)) onSuccess { _ =>
           zkClient(path).exists.watch() onSuccess { case ZNode.Watch(_, update) =>
             update onSuccess {
               case e if e.getType == Watcher.Event.EventType.NodeDeleted =>
-                log.info("ephemeral node (%s) deleted. re-registering".format(path))
+                log.debug("ephemeral node (%s) deleted. re-registering".format(path))
                 register()
 
               case e if e.getState == Watcher.Event.KeeperState.Disconnected =>
-                log.info("ephermal node (%s) keeper disconnected. re-registering".format(path))
+                log.debug("ephemeral node (%s) keeper disconnected. re-registering".format(path))
                 register()
 
               case e if e.getState == Watcher.Event.KeeperState.Expired =>
-                log.info("ephemeral node (%s) keeper expired. re-registering".format(path))
+                log.debug("ephemeral node (%s) keeper expired. re-registering".format(path))
                 register()
 
               case e =>
-                log.info("ephemeral node (%s) watch fired (ignoring): " + e)
+                log.debug("ephemeral node (%s) watch fired (ignoring): %s".format(path, e))
                 ()
             }
+          } onFailure { e: Throwable =>
+            log.error(e, "ephemeral node (%s) watch fired. update failed".format(path))
           }
-        } onFailure { e: Throwable =>
-          log.error("failed to register ephemeral: " + path, e)
+        } onFailure {
+          case e: KeeperException =>
+            if (client.shouldRetry(e)) {
+              log.debug(e, "ephemeral node (%s) registration exception. Re-registering.".format(path))
+              register()
+            } else {
+              log.error(e, "ephemeral node (%s) registration exception. NOT re-registering.".format(path))
+            }
+          case e: java.util.concurrent.TimeoutException =>
+            log.debug(e, "Failed to register ephemeral (%s) due to timeout. Re-registering.".format(path))
+            register()
+          case e =>
+            log.error(e, "Failed to register ephemeral (%s). NOT re-registering.".format(path))
         }
       }
       register()
@@ -169,7 +195,7 @@ class ZKClient(
   }
 
   def watchData(path: String): ZkWatch[Array[Byte]] = {
-    log.info("setting watch for: " + path)
+    log.debug("setting watch for: " + path)
 
     new ZkWatch[Array[Byte]] {
       val data = Var(Array.empty[Byte])
@@ -178,11 +204,11 @@ class ZKClient(
       private[this] def watch(): Future[Unit] = {
         zkClient(path).getData.watch() flatMap {
           case ZNode.Watch(Return(nodeData), update) if !closed.get =>
-            log.info("watch fired with data: " + path)
+            log.debug("watch fired with data: " + path)
             data.update(nodeData.bytes)
             update flatMap { _ => watch() }
           case _ =>
-            log.info("watch fired (ignoring): " + path)
+            log.debug("watch fired (ignoring): " + path)
             Future.Unit
         }
       }
@@ -196,16 +222,18 @@ class ZKClient(
   }
 
   def joinGroup(path: String, data: Var[Array[Byte]]): Closable = {
-    log.info("joining group: " + path)
+    log.debug("joining group: " + path)
     new Closable {
       private[this] val curVal = new AtomicReference[Array[Byte]](Array.empty[Byte])
 
       val membership = ensurePath(path) map { _ =>
         groupFor(path).join(new Supplier[Array[Byte]] {
           def get(): Array[Byte] = {
-            log.info("updating data for group: " + path)
+            log.debug("updating data for group: " + path)
             curVal.get
           }
+        }, new com.twitter.common.base.Command {
+          def execute: Unit = log.error(s"lost membership for $path")
         })
       }
 
@@ -224,7 +252,7 @@ class ZKClient(
   }
 
   def groupData(path: String, freq: Duration): ZkWatch[Seq[Array[Byte]]] = {
-    log.info("watching group data: " + path)
+    log.debug("watching group data: " + path)
     new ZkWatch[Seq[Array[Byte]]] {
       val data = Var(Seq.empty[Array[Byte]])
 
@@ -236,7 +264,7 @@ class ZKClient(
         Future.collect(g.getMemberIds.asScala.toSeq map { id =>
           zkClient(g.getMemberPath(id)).getData().map(_.bytes)
         }).onSuccess { newVal =>
-          log.info("updating data for group: " + path)
+          //log.debug("updating data for group: " + path)
           data.update(newVal)
         }.delayed(freq)(timer) flatMap { _ =>
           update()
@@ -253,7 +281,7 @@ class ZKClient(
   }
 
   def offerLeadership(path: String): ZkWatch[Boolean] = {
-    log.info("offering leadership: " + path)
+    log.debug("offering leadership: " + path)
     new ZkWatch[Boolean] {
       val data = Var(false)
 
@@ -264,13 +292,13 @@ class ZKClient(
         (new CandidateImpl(groupFor(path))).offerLeadership(new Candidate.Leader {
           def onElected(cmd: ExceptionalCommand[Group.JoinException]) {
             if (closed.get) cmd.execute() else {
-              log.info("elected as leader: " + path)
+              log.debug("elected as leader: " + path)
               abdicate.set(cmd)
               data.update(true)
             }
           }
           def onDefeated() {
-            log.info("defeated in leader election: " + path)
+            log.debug("defeated in leader election: " + path)
             data.update(false)
           }
         })

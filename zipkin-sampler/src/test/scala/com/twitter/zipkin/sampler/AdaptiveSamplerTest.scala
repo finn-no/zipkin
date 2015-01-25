@@ -58,7 +58,7 @@ class CooldownCheckTest extends FunSuite {
   test("allows only once per period") {
     Time.withCurrentTimeFrozen { tc =>
       val timer = new MockTimer
-      val check = new CooldownCheck[Unit](1.minute, NullStatsReceiver, timer)
+      val check = new CooldownCheck[Unit](1.minute, NullStatsReceiver, timer = timer)
 
       assert(check(Some(())).isDefined)
       assert(check(Some(())).isEmpty)
@@ -100,9 +100,9 @@ class CalculateSampleRateTest extends FunSuite {
   }
 
   test("calculates a discounted average based on the current req rate and sample rate") {
-    val tgtReqRate = Var(100)
+    val tgtStoreRate = Var(100)
     val sampleRate = Var(1.0)
-    val calc = new CalculateSampleRate(tgtReqRate, sampleRate, DiscountedAverage, 0.05, 1.0)
+    val calc = new CalculateSampleRate(tgtStoreRate, sampleRate, DiscountedAverage, 0.05, 1.0)
     assert(calc(Some(Seq(1000, 1000, 1000))) === Some(0.1))
   }
 }
