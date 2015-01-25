@@ -50,7 +50,11 @@ object Zipkin extends Build {
   def algebird(name: String) = "com.twitter" %% ("algebird-" + name) % algebirdVersion
   def zk(name: String) = "com.twitter.common.zookeeper" % name % zookeeperVersions(name)
 
-  val twitterServer = "com.twitter" %% "twitter-server" % "1.9.0"
+  val twitterServer = "com.twitter" %% "twitter-server" % "1.9.0" excludeAll(
+    ExclusionRule(organization="com.github.spullara.mustache.java")
+  )
+
+  val statsdClient = "no.finn" % "statsd-lmax-disruptor-client" % "2.0.9"
 
   val proxyRepo = Option(System.getenv("SBT_PROXY_REPO"))
   val travisCi = Option(System.getenv("SBT_TRAVIS_CI")) // for adding travis ci maven repos before others
@@ -156,7 +160,8 @@ object Zipkin extends Build {
         util("core"),
         zk("client"),
         algebird("core"),
-        "com.twitter" %% "ostrich" % ostrichVersion
+        "com.twitter" %% "ostrich" % ostrichVersion,
+        statsdClient
       ) ++ scalaTestDeps
     )
 
