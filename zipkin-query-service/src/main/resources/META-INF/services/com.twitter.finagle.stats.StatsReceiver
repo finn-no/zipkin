@@ -1,1 +1,1 @@
-com.twitter.zipkin.stats.StatsDReceiver
+com.twitter.zipkin.query.QueryStatsDReceiver

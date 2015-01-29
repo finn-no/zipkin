@@ -8,13 +8,13 @@ import com.twitter.util.TimerTask
 
 import scala.collection.mutable
 
-class StatsDReceiver extends StatsReceiverWithCumulativeGauges {
+class StatsDReceiver(prefix: String) extends StatsReceiverWithCumulativeGauges {
   val timer = DefaultTimer.twitter
 
   override val repr = this
   var timerTasks = new mutable.HashMap[Seq[String], TimerTask]
 
-  private val statsdClient = new NonBlockingStatsDClient("zipkin", "127.0.0.1", 8125)
+  private val statsdClient = new NonBlockingStatsDClient("zipkin." + prefix, "127.0.0.1", 8125)
 
   override def counter(name: String*) = new Counter {
     override def incr(delta: Int): Unit = {
