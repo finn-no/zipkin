@@ -17,7 +17,7 @@
 package com.twitter.zipkin.query
 
 import com.twitter.conversions.time._
-import com.twitter.finagle.stats.{StatsReceiver, NullStatsReceiver}
+import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver, NullStatsReceiver}
 import com.twitter.finagle.tracing.{Trace => FTrace}
 import com.twitter.logging.Logger
 import com.twitter.ostrich.admin.Service
@@ -41,7 +41,7 @@ class QueryService(
   index: Index,
   aggregates: Aggregates,
   adjusterMap: Map[thriftscala.Adjust, Adjuster],
-  statsReceiver: StatsReceiver = NullStatsReceiver
+  statsReceiver: StatsReceiver = DefaultStatsReceiver
 ) extends thriftscala.ZipkinQuery.FutureIface with Service {
 
   private val log = Logger.get

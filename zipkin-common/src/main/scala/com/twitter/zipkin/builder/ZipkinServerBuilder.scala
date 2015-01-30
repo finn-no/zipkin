@@ -15,7 +15,7 @@
  */
 package com.twitter.zipkin.builder
 
-import com.twitter.finagle.stats.{StatsReceiver, OstrichStatsReceiver}
+import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver}
 import com.twitter.finagle.tracing.{Tracer, NullTracer}
 import com.twitter.finagle.exception
 import com.twitter.logging.config._
@@ -35,7 +35,7 @@ case class ZipkinServerBuilder(
   loggers                 : List[LoggerFactory]      = List(LoggerFactory(level = Some(Level.DEBUG), handlers = List(ConsoleHandler()))),
   adminStatsNodes         : List[StatsFactory]       = List(StatsFactory(reporters = List(TimeSeriesCollectorFactory()))),
   adminStatsFilters       : List[Regex]              = List.empty,
-  statsReceiver           : StatsReceiver            = new OstrichStatsReceiver,
+  statsReceiver           : StatsReceiver            = DefaultStatsReceiver,
   tracer                  : Tracer                   = NullTracer,
   timer                   : Timer                    = new JavaTimer(true),
   exceptionMonitorFactory : exception.MonitorFactory = exception.NullMonitorFactory

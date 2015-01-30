@@ -18,7 +18,7 @@ package com.twitter.zipkin.cassandra
 import com.twitter.cassie.connection.RetryPolicy
 import com.twitter.cassie.{Cluster, ServerSetsCluster, KeyspaceBuilder}
 import com.twitter.conversions.time._
-import com.twitter.finagle.stats.{NullStatsReceiver, StatsReceiver}
+import com.twitter.finagle.stats.{DefaultStatsReceiver, NullStatsReceiver, StatsReceiver}
 import com.twitter.finagle.tracing.{NullTracer, Tracer}
 import com.twitter.util.Duration
 import java.net.InetSocketAddress
@@ -29,7 +29,7 @@ object Keyspace {
     hosts: Seq[(String, Int)],
     path: String,
     timeout: Duration,
-    stats: StatsReceiver = NullStatsReceiver): KeyspaceBuilder = {
+    stats: StatsReceiver = DefaultStatsReceiver): KeyspaceBuilder = {
 
     val sockets = hosts map { case (h, p) => new InetSocketAddress(h, p) }
     useDefaults {
@@ -42,7 +42,7 @@ object Keyspace {
     keyspaceName: String = "Zipkin",
     nodes: Set[String] = Set("dev-cassandra1.finntech.no"),
     port: Int = 7613,
-    stats: StatsReceiver = NullStatsReceiver,
+    stats: StatsReceiver = DefaultStatsReceiver,
     tracerFactory: Tracer.Factory = NullTracer.factory): KeyspaceBuilder = {
 
     useDefaults {

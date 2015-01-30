@@ -16,7 +16,7 @@ package com.twitter.cassie
 
 import com.twitter.cassie.connection.{ CCluster, ClusterClientProvider, RetryPolicy, SocketAddressCluster }
 import com.twitter.conversions.time._
-import com.twitter.finagle.stats.{ StatsReceiver, NullStatsReceiver }
+import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver, NullStatsReceiver}
 import com.twitter.finagle.tracing.{ Tracer, NullTracer }
 import com.twitter.util.Duration
 import org.slf4j.LoggerFactory
@@ -39,7 +39,7 @@ class Cluster(seedHosts: Set[String], seedPort: Int, stats: StatsReceiver, trace
    *                  hosts can be found via mapping the cluser. See KeyspaceBuilder.mapHostsEvery.
    *                  The port number is assumed to be 9160.
    */
-  def this(seedHosts: String, stats: StatsReceiver = NullStatsReceiver) =
+  def this(seedHosts: String, stats: StatsReceiver = DefaultStatsReceiver) =
     this(seedHosts.split(',').filter { !_.isEmpty }.toSet, 9160, stats, NullTracer.factory)
 
   /**
@@ -47,13 +47,13 @@ class Cluster(seedHosts: Set[String], seedPort: Int, stats: StatsReceiver, trace
    *                  hosts can be found via mapping the cluser. See KeyspaceBuilder.mapHostsEvery.
    */
   def this(seedHosts: String, port: Int) =
-    this(seedHosts.split(',').filter { !_.isEmpty }.toSet, port, NullStatsReceiver, NullTracer.factory)
+    this(seedHosts.split(',').filter { !_.isEmpty }.toSet, port, DefaultStatsReceiver, NullTracer.factory)
 
   /**
    * @param seedHosts A collection of seed host addresses. The port number is assumed to be 9160
    */
   def this(seedHosts: java.util.Collection[String]) =
-    this(collectionAsScalaIterable(seedHosts).toSet, 9160, NullStatsReceiver, NullTracer.factory)
+    this(collectionAsScalaIterable(seedHosts).toSet, 9160, DefaultStatsReceiver, NullTracer.factory)
 
   /**
    * Returns a  [[com.twitter.cassie.KeyspaceBuilder]] instance.

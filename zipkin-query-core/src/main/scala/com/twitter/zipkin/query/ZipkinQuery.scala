@@ -18,7 +18,7 @@ package com.twitter.zipkin.query
 
 import com.twitter.zipkin.query.adjusters.Adjuster
 import com.twitter.finagle.builder.{ServerBuilder, Server}
-import com.twitter.finagle.stats.{NullStatsReceiver, StatsReceiver}
+import com.twitter.finagle.stats.{DefaultStatsReceiver, NullStatsReceiver, StatsReceiver}
 import com.twitter.finagle.thrift.ThriftServerFramedCodec
 import com.twitter.finagle.tracing.{NullTracer, Tracer}
 import com.twitter.logging.Logger
@@ -34,7 +34,7 @@ class ZipkinQuery(
   index: Index,
   aggregates: Aggregates,
   adjusterMap: Map[thriftscala.Adjust, Adjuster] = Map.empty,
-  statsReceiver: StatsReceiver = NullStatsReceiver,
+  statsReceiver: StatsReceiver = DefaultStatsReceiver,
   tracer: Tracer = NullTracer
 ) extends Service {
 

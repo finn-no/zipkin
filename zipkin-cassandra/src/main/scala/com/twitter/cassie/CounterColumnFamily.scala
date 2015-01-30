@@ -19,7 +19,7 @@ import com.twitter.cassie.codecs.{ ThriftCodec, Codec }
 import com.twitter.cassie.connection.ClientProvider
 import com.twitter.cassie.util.ByteBufferUtil.EMPTY
 import com.twitter.cassie.util.FutureUtil.timeFutureWithFailures
-import com.twitter.finagle.stats.{ StatsReceiver, NullStatsReceiver }
+import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver, NullStatsReceiver}
 import org.slf4j.LoggerFactory
 import com.twitter.util.Future
 import java.nio.ByteBuffer
@@ -43,7 +43,7 @@ case class CounterColumnFamily[Key, Name](
   provider: ClientProvider,
   keyCodec: Codec[Key],
   nameCodec: Codec[Name],
-  stats: StatsReceiver = NullStatsReceiver,
+  stats: StatsReceiver = DefaultStatsReceiver,
   readConsistency: ReadConsistency = ReadConsistency.Quorum,
   writeConsistency: WriteConsistency = WriteConsistency.One
 ) extends BaseColumnFamily(keyspace, name, provider, stats) {

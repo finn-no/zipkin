@@ -19,7 +19,7 @@ import com.twitter.cassie.connection.CCluster
 import com.twitter.common.net.pool.DynamicHostSet._
 import com.twitter.common.quantity.{Amount, Time}
 import com.twitter.common.zookeeper.{ServerSet, ServerSetImpl, ZooKeeperClient}
-import com.twitter.finagle.stats.{ StatsReceiver, NullStatsReceiver }
+import com.twitter.finagle.stats.{DefaultStatsReceiver, StatsReceiver, NullStatsReceiver}
 import com.twitter.finagle.tracing.{ Tracer, NullTracer }
 import com.twitter.finagle.zookeeper.ZookeeperServerSetCluster
 import com.twitter.thrift.ServiceInstance
@@ -76,7 +76,7 @@ class ServerSetsCluster(serverSet: ServerSet, stats: StatsReceiver, tracer: Trac
    * @param stats a finagle stats receiver
    */
   def this(zkAddresses: Iterable[InetSocketAddress], zkPath: String, timeoutMillis: Int,
-    stats: StatsReceiver = NullStatsReceiver) =
+    stats: StatsReceiver = DefaultStatsReceiver) =
     this(new ZooKeeperClient(Amount.of(timeoutMillis, Time.MILLISECONDS),
       JavaConversions.asJavaIterable(zkAddresses)), zkPath, stats, NullTracer.factory)
 
